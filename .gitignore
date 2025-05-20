@@ -1,0 +1,29 @@
+# Gradle files
+.gradle/
+build/
+gradle-*.zip
+/local.properties
+
+# Android Studio generated files and folders
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+output.json
+
+# IntelliJ
+*.iml
+.idea/
+
+# Keystore files
+*.jks
+*.keystore
+
+# Gradle wrapper jar file and properties
+!gradle/wrapper/gradle-wrapper.jar
+
+# Local configuration file
+local.properties
+
+# OS specific
+.DS_Store
