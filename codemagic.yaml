@@ -8,7 +8,6 @@ workflows:
         # Add any app-specific environment variables here
         PACKAGE_NAME: "com.example.openrouterwatch"
       java: 11
-      android_sdk: 30
     cache:
       cache_paths:
         - ~/.gradle/caches
