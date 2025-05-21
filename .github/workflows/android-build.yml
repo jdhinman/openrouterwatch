@@ -5,6 +5,7 @@ on:
     branches: [ master, main ]
   pull_request:
     branches: [ master, main ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -18,13 +19,20 @@ jobs:
         java-version: '11'
         distribution: 'adopt'
     
-    - name: Setup Gradle
-      uses: gradle/gradle-build-action@v2
-      with:
-        gradle-version: 7.0.2
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
     
     - name: Build with Gradle
-      run: gradle assembleDebug
+      run: ./gradlew assembleDebug
     
-    - name: List files in output directory
-      run: ls -la app/build/outputs || echo "No outputs directory found"
+    - name: Check APK exists
+      run: |
+        ls -la app/build/outputs/apk/debug/ || echo "Debug APK directory not found"
+        find app -name "*.apk" || echo "No APKs found in app directory"
+    
+    - name: Upload APK - Fixed
+      uses: actions/upload-artifact@v2
+      with:
+        name: app-debug-apk
+        path: app/build/outputs/apk/debug/*.apk
+        if-no-files-found: error  # This will make the workflow fail if no APKs are found
