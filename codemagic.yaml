@@ -7,7 +7,6 @@ workflows:
       vars:
         # Add any app-specific environment variables here
         PACKAGE_NAME: "com.example.openrouterwatch"
-      flutter: stable
       java: 11
     cache:
       cache_paths:
@@ -19,17 +18,53 @@ workflows:
         - pattern: master
           include: true
     scripts:
-      - name: Setup permissions
-        script: chmod +x gradlew
-      - name: Build debug APK
-        script: ./gradlew assembleDebug
-      - name: Display built APK path
+      - name: Install Gradle
         script: |
-          ls -la app/build/outputs/apk/debug
-          echo "APK path: app/build/outputs/apk/debug/app-debug.apk"
+          echo "Installing Gradle..."
+          wget https://services.gradle.org/distributions/gradle-7.0.2-bin.zip
+          unzip -q gradle-7.0.2-bin.zip
+          export GRADLE_HOME=$PWD/gradle-7.0.2
+          export PATH=$GRADLE_HOME/bin:$PATH
+          gradle --version
+      
+      - name: Set up Gradle wrapper files
+        script: |
+          echo "Setting up Gradle wrapper..."
+          gradle wrapper
+          chmod +x gradlew
+          ls -la
+      
+      - name: Build debug APK
+        script: |
+          gradle assembleDebug || ./gradlew assembleDebug || gradle build || ./gradlew build
+      
+      - name: Find and display APK
+        script: |
+          echo "Searching for APK files..."
+          find . -name "*.apk"
+          
+          # Most likely location
+          if [ -d "app/build/outputs/apk/debug" ]; then
+            echo "Standard output directory found:"
+            ls -la app/build/outputs/apk/debug
+          fi
+          
+          # Alternative locations
+          if [ -d "build/outputs/apk" ]; then
+            echo "Alternative output directory found:"
+            ls -la build/outputs/apk
+          fi
+          
+          if [ -d "app/build/outputs" ]; then
+            echo "Checking all outputs:"
+            find app/build/outputs -name "*.apk"
+          fi
     artifacts:
       - app/build/outputs/apk/debug/*.apk
+      - build/outputs/apk/**/*.apk
+      - app/build/outputs/**/*.apk
+      - "**/*.apk"
     publishing:
       email:
         recipients:
-          - your.email@example.com  # Replace with your actual email
+          - jd21hinman@gmail.com # Replace with your actual email
