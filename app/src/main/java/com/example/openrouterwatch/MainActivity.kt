@@ -4,16 +4,16 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.speech.RecognizerIntent
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.core.view.GestureDetectorCompat
 import androidx.lifecycle.lifecycleScope
-import com.samsung.android.sdk.SsdkUnsupportedException
-import com.samsung.android.sdk.wear.Wearable
-import com.samsung.android.sdk.wear.WearableNavigationHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -30,7 +30,7 @@ class MainActivity : ComponentActivity() {
     private var selectedModel = "anthropic/claude-3-haiku"
     private val chatHistory = mutableListOf<Message>()
     
-    private lateinit var wearableNavHelper: WearableNavigationHelper
+    private lateinit var gestureDetector: GestureDetectorCompat
     
     private var isModelSelectionMode = false
     private val availableModels = listOf(
@@ -88,35 +88,52 @@ class MainActivity : ComponentActivity() {
             startSpeechRecognition()
         }
         
-        // Initialize Samsung Wearable SDK for bezel rotation
-        initBezelRotation()
+        // Setup gesture detection for swipe (alternative to bezel rotation)
+        setupGestureDetection()
     }
     
-    private fun initBezelRotation() {
-        try {
-            val wearable = Wearable()
-            wearable.initialize(this)
-            
-            wearableNavHelper = WearableNavigationHelper(this)
-            wearableNavHelper.setNavigationCallback(object : WearableNavigationHelper.WearableNavigationCallback() {
-                override fun onRotaryDetent(direction: Int): Boolean {
-                    when (direction) {
-                        WearableNavigationHelper.CLOCKWISE -> {
-                            handleClockwiseRotation()
-                            return true
-                        }
-                        WearableNavigationHelper.COUNTER_CLOCKWISE -> {
-                            handleCounterClockwiseRotation()
-                            return true
-                        }
+    private fun setupGestureDetection() {
+        gestureDetector = GestureDetectorCompat(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onFling(
+                e1: MotionEvent?,
+                e2: MotionEvent,
+                velocityX: Float,
+                velocityY: Float
+            ): Boolean {
+                if (e1 == null) return false
+                
+                val diffY = e2.y - e1.y
+                val diffX = e2.x - e1.x
+                
+                // Check if the swipe is more horizontal than vertical
+                if (Math.abs(diffX) > Math.abs(diffY)) {
+                    if (diffX > 0) {
+                        // Swipe right - similar to clockwise bezel rotation
+                        handleClockwiseRotation()
+                    } else {
+                        // Swipe left - similar to counter-clockwise bezel rotation
+                        handleCounterClockwiseRotation()
                     }
-                    return false
+                } else {
+                    if (diffY > 0) {
+                        // Swipe down
+                        val scrollView = findViewById<ScrollView>(R.id.scrollView)
+                        scrollView.smoothScrollBy(0, 50)
+                    } else {
+                        // Swipe up
+                        val scrollView = findViewById<ScrollView>(R.id.scrollView)
+                        scrollView.smoothScrollBy(0, -50)
+                    }
                 }
-            })
-            wearableNavHelper.start()
-        } catch (e: SsdkUnsupportedException) {
-            Toast.makeText(this, "This device doesn't support the Samsung Wearable SDK", Toast.LENGTH_SHORT).show()
-        }
+                
+                return true
+            }
+        })
+    }
+    
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        gestureDetector.onTouchEvent(event)
+        return super.onTouchEvent(event)
     }
     
     private fun handleClockwiseRotation() {
@@ -147,7 +164,7 @@ class MainActivity : ComponentActivity() {
         isModelSelectionMode = !isModelSelectionMode
         if (isModelSelectionMode) {
             // Enter model selection mode
-            Toast.makeText(this, "Rotate bezel to select model", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Swipe left/right to select model", Toast.LENGTH_SHORT).show()
             modelSelectionIndex = availableModels.indexOf(selectedModel).coerceAtLeast(0)
             updateModelSelectionDisplay()
         } else {
@@ -225,13 +242,6 @@ class MainActivity : ComponentActivity() {
             messageInput.setText(spokenText)
         }
         super.onActivityResult(requestCode, resultCode, data)
-    }
-    
-    override fun onDestroy() {
-        super.onDestroy()
-        if (::wearableNavHelper.isInitialized) {
-            wearableNavHelper.stop()
-        }
     }
     
     companion object {
