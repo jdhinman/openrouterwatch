@@ -8,6 +8,7 @@ workflows:
         # Add any app-specific environment variables here
         PACKAGE_NAME: "com.example.openrouterwatch"
       java: 11
+      android_sdk: 30
     cache:
       cache_paths:
         - ~/.gradle/caches
@@ -18,47 +19,88 @@ workflows:
         - pattern: master
           include: true
     scripts:
-      - name: Install Gradle
+      - name: Set up repository structure
         script: |
-          echo "Installing Gradle..."
-          wget https://services.gradle.org/distributions/gradle-7.0.2-bin.zip
-          unzip -q gradle-7.0.2-bin.zip
-          export GRADLE_HOME=$PWD/gradle-7.0.2
+          echo "Checking repository structure..."
+          find . -type f -name "*.gradle" | sort
+          
+          if [ -f "app/build.gradle" ]; then
+            echo "Contents of app/build.gradle:"
+            cat app/build.gradle
+          fi
+          
+          if [ -f "build.gradle" ]; then
+            echo "Contents of root build.gradle:"
+            cat build.gradle
+          fi
+          
+          echo "Checking for Android manifest:"
+          find . -name "AndroidManifest.xml"
+      
+      - name: Install specific Gradle version
+        script: |
+          echo "Installing Gradle 6.7.1 (more compatible with older Android projects)..."
+          wget https://services.gradle.org/distributions/gradle-6.7.1-bin.zip
+          unzip -q gradle-6.7.1-bin.zip
+          export GRADLE_HOME=$PWD/gradle-6.7.1
           export PATH=$GRADLE_HOME/bin:$PATH
+          echo "Using Gradle version:"
           gradle --version
       
-      - name: Set up Gradle wrapper files
+      - name: Update build.gradle files
         script: |
-          echo "Setting up Gradle wrapper..."
-          gradle wrapper
-          chmod +x gradlew
-          ls -la
+          echo "Checking Android plugin version compatibility..."
+          
+          # Update root build.gradle if needed
+          if [ -f "build.gradle" ]; then
+            # Remove specific Gradle plugin version to let it use what's compatible
+            sed -i 's/com.android.tools.build:gradle:[0-9.]\+/com.android.tools.build:gradle:4.1.3/' build.gradle
+            echo "Updated root build.gradle:"
+            cat build.gradle
+          fi
+          
+          # Create a local.properties file
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          echo "Created local.properties:"
+          cat local.properties
       
-      - name: Build debug APK
+      - name: Attempt build with verbose output
         script: |
-          gradle assembleDebug || ./gradlew assembleDebug || gradle build || ./gradlew build
+          echo "Running build with --stacktrace --info..."
+          gradle assembleDebug --stacktrace --info || true
+          
+          echo "Attempting more specific build..."
+          gradle :app:assembleDebug --stacktrace --info || true
+          
+          # Direct approach with app folder
+          if [ -d "app" ]; then
+            cd app
+            echo "Trying build from app directory..."
+            ../gradle-6.7.1/bin/gradle assembleDebug --stacktrace --info || true
+            cd ..
+          fi
       
-      - name: Find and display APK
+      - name: Find APK
         script: |
           echo "Searching for APK files..."
           find . -name "*.apk"
+      
+      - name: Debug project structure
+        script: |
+          echo "Project structure analysis:"
+          ls -la
+          find . -type d -maxdepth 2
           
-          # Most likely location
-          if [ -d "app/build/outputs/apk/debug" ]; then
-            echo "Standard output directory found:"
-            ls -la app/build/outputs/apk/debug
-          fi
+          echo "Gradle build files:"
+          find . -name "build.gradle" | xargs cat
           
-          # Alternative locations
-          if [ -d "build/outputs/apk" ]; then
-            echo "Alternative output directory found:"
-            ls -la build/outputs/apk
-          fi
-          
-          if [ -d "app/build/outputs" ]; then
-            echo "Checking all outputs:"
-            find app/build/outputs -name "*.apk"
-          fi
+          echo "Settings.gradle:"
+          find . -name "settings.gradle" | xargs cat
+      
+      - name: Build with specific arguments
+        script: |
+          # Try a basic build with arguments that might work around the issue
+          gradle assembleDebug -Pandroid.useAndroidX=true --warning-mode=all
     artifacts:
       - app/build/outputs/apk/debug/*.apk
       - build/outputs/apk/**/*.apk
@@ -67,4 +109,4 @@ workflows:
     publishing:
       email:
         recipients:
-          - jd21hinman@gmail.com # Replace with your actual email
+          - your.email@example.com  # Replace with your actual email
