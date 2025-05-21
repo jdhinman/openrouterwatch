@@ -1,0 +1,35 @@
+workflows:
+  android-workflow:
+    name: OpenRouter Watch
+    instance_type: linux_x2
+    max_build_duration: 60
+    environment:
+      vars:
+        # Add any app-specific environment variables here
+        PACKAGE_NAME: "com.example.openrouterwatch"
+      flutter: stable
+      java: 11
+    cache:
+      cache_paths:
+        - ~/.gradle/caches
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: master
+          include: true
+    scripts:
+      - name: Setup permissions
+        script: chmod +x gradlew
+      - name: Build debug APK
+        script: ./gradlew assembleDebug
+      - name: Display built APK path
+        script: |
+          ls -la app/build/outputs/apk/debug
+          echo "APK path: app/build/outputs/apk/debug/app-debug.apk"
+    artifacts:
+      - app/build/outputs/apk/debug/*.apk
+    publishing:
+      email:
+        recipients:
+          - your.email@example.com  # Replace with your actual email
